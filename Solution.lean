@@ -39,15 +39,22 @@ requiring no operator theory. Without this clause the existence statement would 
 that *the free field* satisfies them.
 
 All definitions below are self-contained over Mathlib: the field configuration space and its
-cylinder σ-algebra, the generating functionals, the free covariance, time reflection and the
-Osterwalder–Schrader star operation, positive-time test functions, time translations, the
-mollifier-regularized two-point function, and the five OS axiom predicates. Wherever an
-axiom needs a transformed test function — the Euclidean pullback (OS2), the OS star (OS3),
-the time translation (OS4 ergodicity), and the mollifier translates of the two-point
-function (OS1) and of clustering (OS4) — the transform is *characterised* pointwise rather
-than constructed as a Schwartz map, and the `EuclideanPullbackExists`,
-`TimeReflectionStarExists`, `TimeTranslationExists`, and `TranslationExists` clauses of the
-theorem rule out the vacuous readings. The theorem is proved at the end of the file.
+cylinder σ-algebra, the generating functionals, the free covariance, the mollifier bumps and
+the smeared two-point function, time reflection, the positive-time half-space, time shifts,
+and the five OS axiom predicates.
+
+Euclidean invariance (OS2), the OS star of reflection positivity (OS3), the mollifier
+smearing of the two-point function (OS1), and the translations of clustering and of the
+ergodic time average (OS4) are stated by *characterising* the relevant transformed test
+functions — the pullback `f(g⁻¹x)`, the reflected conjugate `conj (f (Θx))`, the translate
+`f(x − a)` — pointwise, rather than constructing them as Schwartz maps: that each transform
+is again a Schwartz function is a fact of analysis, not part of the statement, so each axiom
+simply quantifies over any test function with the required values, as in "for every `f'`
+with `f' x = f (g⁻¹ x)`, …". Two test functions with the same values are equal, so this
+states the same axiom — provided such `f'` exist at all. The four `…Exists` clauses of the
+theorem (`EuclideanPullbackExists`, `TimeReflectionStarExists`, `TimeTranslationExists`,
+`TranslationExists`) assert precisely that existence, so no axiom can hold vacuously. The
+single `sorry` is the theorem to be proved.
 
 The formulation of the axioms follows Glimm–Jaffe, *Quantum Physics: A Functional Integral
 Point of View* (Springer, 1987), ch. 6, stated for probability measures on `S'(ℝ^d)`; OS3 is
@@ -239,9 +246,9 @@ def OS0_Analyticity (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : P
 imposes in the borderline case `p = 2`. The pointwise two-point function `S₂(x)` is the
 mollifier limit of smeared covariances `S₂(φₙ(· − x), φₙ)` along the standard bump sequence,
 regularized to `0` at the coincident point `x = 0` (where the two-point function of a
-quantum field diverges). The translated mollifier `φₙ(· − x)` is characterised pointwise by
-the quantified family `smear` rather than constructed as a Schwartz map; the companion
-existence clause in the theorem (`TranslationExists`) rules out the vacuous reading. -/
+quantum field diverges). As explained at the top of the file, the translated mollifier
+`φₙ(· − x)` is characterised pointwise by the quantified family `smear`; the theorem's
+`TranslationExists` clause guarantees it exists. -/
 def TwoPointIntegrable (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Prop :=
   ∀ smear : ContDiffBump (0 : SpaceTime d) → SpaceTime d → TestFunction d,
     (∀ φ x y, smear φ x y = bumpToSchwartz φ (y - x)) →
@@ -266,10 +273,9 @@ def OS1_Regularity (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Pr
 Euclidean motion `x ↦ R x + b` of `ℝ^d`.
 
 The motion acts on test functions by pullback, `(g · f)(x) = f (g⁻¹ x) = f (R⁻¹ (x − b))`.
-Rather than *constructing* that pullback as a Schwartz map — which needs the temperate-growth
-and antilipschitz apparatus, and is proof development rather than statement — we quantify over
-any test function `f'` that agrees with it pointwise. The companion existence clause in the
-theorem (`EuclideanPullbackExists`) rules out the reading in which this is vacuous. -/
+As explained at the top of the file, the pullback is characterised pointwise: the axiom
+quantifies over any test function `f'` with `f' x = f (R⁻¹ (x − b))`, and the theorem's
+`EuclideanPullbackExists` clause guarantees such `f'` exist. -/
 def OS2_EuclideanInvariance (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Prop :=
   ∀ (R : SpaceTime d ≃ₗᵢ[ℝ] SpaceTime d) (b : SpaceTime d) (f f' : TestFunctionℂ d),
     (∀ x, f' x = f (R.symm (x - b))) →
@@ -288,12 +294,10 @@ functions `f₁, …, fₙ` supported in the positive-time half-space and coeffi
 `c₁, …, cₙ ∈ ℂ`, `∑ᵢⱼ c̄ᵢ cⱼ Z[fᵢ − fⱼ*] ≥ 0`, where `(f*)(x) = conj (f (Θ x))` combines
 time reflection with complex conjugation.
 
-The support restriction is a plain hypothesis, `tsupport (f i) ⊆ positiveTimeSet`, rather
-than a subtype. `f*` is not *constructed* as a Schwartz map — that needs the
-isometry-equivalence and temperate-growth apparatus, and is proof development rather than
-statement — instead we quantify over any test functions `fstar j` agreeing with
-`conj (f j (Θ ·))` pointwise. The companion existence clause in the theorem
-(`TimeReflectionStarExists`) rules out the reading in which this is vacuous. -/
+The support restriction is a plain hypothesis, `tsupport (f i) ⊆ positiveTimeSet`. As
+explained at the top of the file, the star is characterised pointwise: the axiom quantifies
+over any test functions `fstar j` with `fstar j x = conj (f j (Θ x))`, and the theorem's
+`TimeReflectionStarExists` clause guarantees they exist. -/
 def OS3_ReflectionPositivity [Fact (2 ≤ d)]
     (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Prop :=
   ∀ (n : ℕ) (f : Fin n → TestFunctionℂ d) (fstar : Fin n → TestFunctionℂ d)
@@ -313,9 +317,9 @@ def TimeReflectionStarExists (d : ℕ) [Fact (2 ≤ d)] : Prop :=
 
 /-- **OS4 (Clustering):** correlations of distant regions decay:
 `Z[f + T_a g] → Z[f] Z[g]` as the translation `‖a‖ → ∞`, so that widely separated test
-functions become statistically independent. The translate `(T_a g)(x) = g(x − a)` is
-characterised pointwise by the quantified `g'`; the companion existence clause in the
-theorem (`TranslationExists`) rules out the vacuous reading. -/
+functions become statistically independent. As explained at the top of the file, the
+translate `(T_a g)(x) = g(x − a)` is characterised pointwise by the quantified `g'`; the
+theorem's `TranslationExists` clause guarantees it exists. -/
 def OS4_Clustering (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Prop :=
   ∀ (f g : TestFunction d) (ε : ℝ), ε > 0 → ∃ (R : ℝ), R > 0 ∧
     ∀ (a : SpaceTime d) (g' : TestFunction d), ‖a‖ > R →
@@ -332,11 +336,11 @@ def TranslationExists (d : ℕ) : Prop :=
 /-- **OS4 (Ergodicity):** for observables `A(ω) = ∑ⱼ zⱼ e^{⟨ω, fⱼ⟩}`, the time average
 `(1/T) ∫₀ᵀ A(T_s ω) ds` converges to the expectation `𝔼_μ[A]` in `L²(μ)` as `T → ∞`.
 
-The translated distribution is `⟨T_s ω, g⟩ = ⟨ω, g ∘ timeShift (−s)⟩`. Rather than
-*constructing* `g ∘ timeShift (−s)` as a Schwartz map, we quantify over any family
-`translate` agreeing with it pointwise, and write the translated observable through the
-real/imaginary decomposition of the pairing. The companion existence clause in the theorem
-(`TimeTranslationExists`) rules out the reading in which this is vacuous. -/
+The translated distribution acts by `⟨T_s ω, g⟩ = ⟨ω, g ∘ timeShift (−s)⟩`. As explained at
+the top of the file, the time translate is characterised pointwise by the quantified family
+`translate`, and the translated observable is written through the real/imaginary
+decomposition of the pairing; the theorem's `TimeTranslationExists` clause guarantees the
+translates exist. -/
 def OS4_Ergodicity (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Prop :=
   ∀ (translate : ℝ → TestFunction d → TestFunction d),
     (∀ (s : ℝ) (g : TestFunction d) (x : SpaceTime d), translate s g x = g (timeShift s x)) →
@@ -374,8 +378,8 @@ distributions `S'(ℝ^d)` — the free (massive) Gaussian Free Field — such th
 * every Euclidean motion pulls test functions back to test functions
   (`EuclideanPullbackExists`), every test function has an Osterwalder–Schrader star
   (`TimeReflectionStarExists`), and time translation and spacetime translation carry test
-  functions to test functions (`TimeTranslationExists`, `TranslationExists`), so the
-  characterised OS1 integrability, OS2, OS3, and OS4 below have their full force; and
+  functions to test functions (`TimeTranslationExists`, `TranslationExists`), so none of
+  the axioms below holds vacuously; and
 * `μ` satisfies the five Osterwalder–Schrader axioms: OS0 (analyticity), OS1 (regularity),
   OS2 (Euclidean invariance), OS3 (reflection positivity, complex star formulation), and
   OS4 (both clustering and ergodicity).
