@@ -30,9 +30,10 @@ All definitions below are self-contained over Mathlib: the field configuration s
 cylinder σ-algebra, the generating functionals, the free covariance, time reflection and the
 Osterwalder–Schrader star operation, positive-time test functions, time translations, the
 mollifier-regularized two-point function, and the five OS axiom predicates. Euclidean
-invariance (OS2) is stated by *characterising* the pullback action pointwise rather than
-constructing it as a Schwartz map; the `EuclideanPullbackExists` clause of the theorem rules
-out the vacuous reading. The single `sorry` is the theorem to be proved.
+invariance (OS2) and the OS star of reflection positivity (OS3) are stated by
+*characterising* the pullback action and the star pointwise rather than constructing them as
+Schwartz maps; the `EuclideanPullbackExists` and `TimeReflectionStarExists` clauses of the
+theorem rule out the vacuous readings. The single `sorry` is the theorem to be proved.
 
 The formulation of the axioms follows Glimm–Jaffe, *Quantum Physics: A Functional Integral
 Point of View* (Springer, 1987), ch. 6, stated for probability measures on `S'(ℝ^d)`; OS3 is
@@ -228,129 +229,6 @@ coordinates. -/
 def timeReflection [Fact (2 ≤ d)] (x : SpaceTime d) : SpaceTime d :=
   (WithLp.equiv 2 _).symm (Function.update x.ofLp 0 (-x.ofLp 0))
 
-/-- Time reflection as a linear map on `ℝ^d`. -/
-def timeReflectionLinear [Fact (2 ≤ d)] : SpaceTime d →ₗ[ℝ] SpaceTime d :=
-  { toFun := timeReflection
-    map_add' := by
-      intro x y
-      apply PiLp.ext
-      intro i
-      simp only [timeReflection, WithLp.equiv_symm_apply]
-      by_cases h : i = 0
-      · subst h
-        simp [Function.update_self]
-        ring
-      · simp [Function.update_of_ne h]
-    map_smul' := by
-      intro c x
-      apply PiLp.ext
-      intro i
-      simp only [timeReflection, RingHom.id_apply, WithLp.equiv_symm_apply]
-      by_cases h : i = 0
-      · subst h
-        simp [Function.update_self]
-      · simp [Function.update_of_ne h] }
-
-/-- Time reflection as a continuous linear map on `ℝ^d`. -/
-noncomputable def timeReflectionCLM [Fact (2 ≤ d)] : SpaceTime d →L[ℝ] SpaceTime d :=
-  timeReflectionLinear.toContinuousLinearMap (E := SpaceTime d) (F' := SpaceTime d)
-
-open InnerProductSpace in
-/-- Time reflection preserves the Euclidean inner product. -/
-lemma timeReflection_inner_map [Fact (2 ≤ d)] (x y : SpaceTime d) :
-    ⟪timeReflection x, timeReflection y⟫_ℝ = ⟪x, y⟫_ℝ := by
-  simp only [inner]
-  congr 1
-  ext i
-  simp only [timeReflection]
-  by_cases h : i = 0
-  · rw [h]; simp
-  · simp [h]
-
-/-- Time reflection is an involution: `Θ ∘ Θ = id`. -/
-@[simp] lemma timeReflection_involutive [Fact (2 ≤ d)] (x : SpaceTime d) :
-    timeReflection (timeReflection x) = x := by
-  apply PiLp.ext
-  intro i
-  simp only [timeReflection, WithLp.equiv_symm_apply]
-  by_cases h : i = 0
-  · subst h
-    simp [Function.update_self]
-  · simp [Function.update_of_ne h]
-
-open InnerProductSpace in
-/-- Time reflection as a linear isometry equivalence of `ℝ^d`. -/
-def timeReflectionLE [Fact (2 ≤ d)] : SpaceTime d ≃ₗᵢ[ℝ] SpaceTime d :=
-  { toFun := timeReflection
-    invFun := timeReflection
-    left_inv := timeReflection_involutive
-    right_inv := timeReflection_involutive
-    map_add' := timeReflectionLinear.map_add'
-    map_smul' := timeReflectionLinear.map_smul'
-    norm_map' := by
-      intro x
-      show ‖timeReflection x‖ = ‖x‖
-      have h : ⟪timeReflection x, timeReflection x⟫_ℝ = ⟪x, x⟫_ℝ := timeReflection_inner_map x x
-      have h1 : ⟪timeReflection x, timeReflection x⟫_ℝ = ‖timeReflection x‖ ^ 2 := by
-        rw [← real_inner_self_eq_norm_sq]
-      have h2 : ⟪x, x⟫_ℝ = ‖x‖ ^ 2 := by
-        rw [← real_inner_self_eq_norm_sq]
-      rw [← sq_eq_sq₀ (norm_nonneg _) (norm_nonneg _)]
-      rw [← h1, ← h2, h] }
-
-/-- Time reflection has temperate growth (it is a linear isometry). -/
-lemma timeReflection_hasTemperateGrowth [Fact (2 ≤ d)] :
-    Function.HasTemperateGrowth (timeReflection (d := d)) := by
-  have h : timeReflection (d := d) = ⇑(timeReflectionCLM (d := d)) := rfl
-  rw [h]
-  exact ContinuousLinearMap.hasTemperateGrowth (timeReflectionCLM (d := d))
-
-/-- Time reflection is antilipschitz (it is an isometry). -/
-lemma timeReflection_antilipschitz [Fact (2 ≤ d)] :
-    AntilipschitzWith 1 (timeReflection (d := d)) := by
-  have h : timeReflection (d := d) = ⇑(timeReflectionLE (d := d)) := rfl
-  rw [h]
-  exact (timeReflectionLE (d := d)).isometry.antilipschitz
-
-/-- Composition with time reflection, `f ↦ f ∘ Θ`, as a continuous linear map on complex
-test functions. -/
-noncomputable def compTimeReflection [Fact (2 ≤ d)] : TestFunctionℂ d →L[ℝ] TestFunctionℂ d :=
-  SchwartzMap.compCLMOfAntilipschitz ℝ timeReflection_hasTemperateGrowth
-    timeReflection_antilipschitz
-
-lemma starRingEnd_iteratedFDeriv_norm_eq (g : TestFunctionℂ d) (n : ℕ) (x : SpaceTime d) :
-    ‖iteratedFDeriv ℝ n (fun x => starRingEnd ℂ (g x)) x‖ = ‖iteratedFDeriv ℝ n g x‖ := by
-  have h : (fun x => starRingEnd ℂ (g x)) = Complex.conjLIE ∘ g := by
-    ext y
-    rw [Function.comp_apply]
-    exact congr_fun (@RCLike.conjLIE_apply ℂ _) (g y)
-  rw [h]
-  exact LinearIsometryEquiv.norm_iteratedFDeriv_comp_left Complex.conjLIE g x n
-
-/-- The Osterwalder–Schrader star operation on complex test functions: time reflection
-followed by pointwise complex conjugation, `(star f)(x) = conj (f (Θ x))`. -/
-noncomputable def starTestFunction [Fact (2 ≤ d)] (f : TestFunctionℂ d) : TestFunctionℂ d :=
-  let f_reflected := compTimeReflection f
-  ⟨fun x => starRingEnd ℂ (f_reflected x),
-   by
-     apply ContDiff.comp
-     · exact ContinuousLinearMap.contDiff (Complex.conjLIE.toContinuousLinearMap)
-     · exact f_reflected.smooth ⊤,
-   fun k n => by
-     obtain ⟨C, hC⟩ := f_reflected.decay' k n
-     use C
-     intro x
-     have h_eq : ‖iteratedFDeriv ℝ n (fun x => starRingEnd ℂ (f_reflected x)) x‖ =
-         ‖iteratedFDeriv ℝ n f_reflected x‖ :=
-       starRingEnd_iteratedFDeriv_norm_eq f_reflected n x
-     calc ‖x‖ ^ k * ‖iteratedFDeriv ℝ n (fun x => starRingEnd ℂ (f_reflected x)) x‖
-         = ‖x‖ ^ k * ‖iteratedFDeriv ℝ n f_reflected x‖ := by rw [h_eq]
-       _ ≤ C := hC x⟩
-
-/-- The star operation as a `Star` instance on complex test functions. -/
-noncomputable instance instStarTestFunction [Fact (2 ≤ d)] : Star (TestFunctionℂ d) where
-  star f := starTestFunction f
-
 /-! ## Positive-time test functions -/
 
 /-- A spacetime point has positive time if its time component is positive. -/
@@ -483,13 +361,28 @@ semi-definite Hermitian form on test functions supported at positive time. This 
 complex (star) formulation of Osterwalder–Schrader (1975, axiom E2): for all positive-time
 complex test functions `f₁, …, fₙ` and coefficients `c₁, …, cₙ ∈ ℂ`,
 `∑ᵢⱼ c̄ᵢ cⱼ Z[fᵢ − fⱼ*] ≥ 0`, where `(f*)(x) = conj (f (Θ x))` combines time reflection
-with complex conjugation. -/
+with complex conjugation.
+
+Rather than *constructing* `f*` as a Schwartz map — which needs the isometry-equivalence and
+temperate-growth apparatus, and is proof development rather than statement — we quantify over
+any test functions `fstar j` agreeing with `conj (f j (Θ ·))` pointwise. The companion
+existence clause in the theorem (`TimeReflectionStarExists`) rules out the reading in which
+this is vacuous. -/
 def OS3_ReflectionPositivity [Fact (2 ≤ d)]
     (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Prop :=
-  ∀ (n : ℕ) (f : Fin n → PositiveTimeTestFunctionℂ d) (c : Fin n → ℂ),
+  ∀ (n : ℕ) (f : Fin n → PositiveTimeTestFunctionℂ d) (fstar : Fin n → TestFunctionℂ d)
+    (c : Fin n → ℂ),
+    (∀ j x, fstar j x = starRingEnd ℂ ((f j).val (timeReflection x))) →
     0 ≤ (∑ i, ∑ j, starRingEnd ℂ (c i) * c j *
       GJGeneratingFunctionalℂ dμ_config
-        ((f i).val - star ((f j).val))).re
+        ((f i).val - fstar j)).re
+
+/-- The Osterwalder–Schrader star `(f*)(x) = conj (f (Θ x))` of a test function is again a
+test function, so the hypothesis of `OS3_ReflectionPositivity` is satisfiable and the axiom
+has its full force. -/
+def TimeReflectionStarExists (d : ℕ) [Fact (2 ≤ d)] : Prop :=
+  ∀ f : TestFunctionℂ d, ∃ f' : TestFunctionℂ d,
+    ∀ x, f' x = starRingEnd ℂ (f (timeReflection x))
 
 /-- **OS4 (Clustering):** correlations of distant regions decay:
 `Z[f + T_a g] → Z[f] Z[g]` as the translation `‖a‖ → ∞`, so that widely separated test
@@ -526,7 +419,9 @@ distributions `S'(ℝ^d)` — the free (massive) Gaussian Free Field — such th
   proper-time form (this clause pins `μ` down: a Gaussian measure is determined by its
   characteristic functional);
 * every Euclidean motion pulls test functions back to test functions
-  (`EuclideanPullbackExists`), so the characterised OS2 below has its full force; and
+  (`EuclideanPullbackExists`), and every test function has an Osterwalder–Schrader star
+  (`TimeReflectionStarExists`), so the characterised OS2 and OS3 below have their full
+  force; and
 * `μ` satisfies the five Osterwalder–Schrader axioms: OS0 (analyticity), OS1 (regularity),
   OS2 (Euclidean invariance), OS3 (reflection positivity, complex star formulation), and
   OS4 (both clustering and ergodicity).
@@ -538,7 +433,7 @@ theorem gaussianFreeField_satisfies_OS_axioms (d : ℕ) [Fact (2 ≤ d)] (m : �
       (∀ f : TestFunction d,
         GJGeneratingFunctional μ f =
           Complex.exp (-(1 / 2 : ℂ) * ((covarianceForm d m f f : ℝ) : ℂ))) ∧
-      EuclideanPullbackExists d ∧
+      EuclideanPullbackExists d ∧ TimeReflectionStarExists d ∧
       OS0_Analyticity μ ∧ OS1_Regularity μ ∧ OS2_EuclideanInvariance μ ∧
       OS3_ReflectionPositivity μ ∧ OS4_Clustering μ ∧ OS4_Ergodicity μ := sorry
 
