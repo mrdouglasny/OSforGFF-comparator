@@ -15,7 +15,9 @@ and proves the challenge theorem from the OSforGFF library — the witness is th
 Minlos-constructed measure `gaussianFreeField_free` under the canonical proper-time propagator
 `GFFPropagator.ofProperTime`, its characterization is `gff_real_characteristic`, and the five
 OS axioms are the fields of the dimension-generic master theorem
-`gaussianFreeField_satisfies_all_OS_axioms_generic`.
+`gaussianFreeField_satisfies_all_OS_axioms_generic`; the Euclidean-pullback existence clause
+and the characterised OS2 are discharged through the library's constructed action
+`QFT.euclidean_action`.
 
 The Challenge (restated below) covers, in Mathlib-only terms, the construction of Euclidean
 quantum field theory's
@@ -36,10 +38,12 @@ requiring no operator theory. Without this clause the existence statement would 
 that *the free field* satisfies them.
 
 All definitions below are self-contained over Mathlib: the field configuration space and its
-cylinder σ-algebra, the generating functionals, the free covariance, the Euclidean group and
-its action on test functions, time reflection and the Osterwalder–Schrader star operation,
-positive-time test functions, time translations, the mollifier-regularized two-point function,
-and the five OS axiom predicates. The theorem is proved at the end of the file.
+cylinder σ-algebra, the generating functionals, the free covariance, time reflection and the
+Osterwalder–Schrader star operation, positive-time test functions, time translations, the
+mollifier-regularized two-point function, and the five OS axiom predicates. Euclidean
+invariance (OS2) is stated by *characterising* the pullback action pointwise rather than
+constructing it as a Schwartz map; the `EuclideanPullbackExists` clause of the theorem rules
+out the vacuous reading. The theorem is proved at the end of the file.
 
 The formulation of the axioms follows Glimm–Jaffe, *Quantum Physics: A Functional Integral
 Point of View* (Springer, 1987), ch. 6, stated for probability measures on `S'(ℝ^d)`; OS3 is
@@ -219,109 +223,6 @@ def SchwingerTwoPointFunction
     Filter.limUnder Filter.atTop
       (fun n : ℕ => if hn : n = 0 then 0
         else SmearedTwoPointFunction dμ_config (standardBumpSequence n hn) x)
-
-/-! ## The Euclidean group and its action on test functions -/
-
-/-- Orthogonal linear isometries of `ℝ^d`: the group `O(d)`. -/
-abbrev Rotation (d : ℕ) : Type :=
-  LinearIsometry (RingHom.id ℝ) (SpaceTime d) (SpaceTime d)
-
-/-- A Euclidean motion of `ℝ^d`: a rotation/reflection `R ∈ O(d)` followed by a translation,
-`x ↦ R x + t`. These form the Euclidean group `E(d) = ℝ^d ⋊ O(d)`. -/
-structure E (d : ℕ) where
-  /-- The rotation/reflection part. -/
-  R : Rotation d
-  /-- The translation part. -/
-  t : SpaceTime d
-
-/-- The action of a Euclidean motion on a spacetime point: `g • x = R x + t`. -/
-def act (g : E d) (x : SpaceTime d) : SpaceTime d := g.R x + g.t
-
-/-- The inverse of a linear isometry of `ℝ^d` (finite dimension makes every isometry
-surjective, so the inverse isometry exists). -/
-noncomputable def Rotation.inv (g : Rotation d) : Rotation d :=
-  ((g.toLinearIsometryEquiv rfl).symm).toLinearIsometry
-
-/-- The inverse Euclidean motion: `(R, t)⁻¹ = (R⁻¹, −R⁻¹ t)`. -/
-noncomputable instance instInvE : Inv (E d) where
-  inv g := ⟨Rotation.inv g.R, -(Rotation.inv g.R) g.t⟩
-
-/-- The pullback map underlying the action of `g` on functions: `x ↦ g⁻¹ • x`. -/
-noncomputable def euclidean_pullback (g : E d) : SpaceTime d → SpaceTime d := act g⁻¹
-
-lemma contDiff_act_inv (g : E d) : ContDiff ℝ ⊤ (act g⁻¹) := by
-  have h₁ : ContDiff ℝ ⊤ (fun x : SpaceTime d => g⁻¹.R x) := g⁻¹.R.contDiff
-  have h₂ : ContDiff ℝ ⊤ (fun _ : SpaceTime d => g⁻¹.t) := contDiff_const
-  unfold act
-  exact h₁.add h₂
-
-lemma fderiv_linear_add_const (L : SpaceTime d →L[ℝ] SpaceTime d) (c : SpaceTime d)
-    (x : SpaceTime d) : fderiv ℝ (fun y => L y + c) x = fderiv ℝ L x :=
-  fderiv_add_const _
-
-theorem fderiv_act_inv_eq_linear (g : E d) :
-    (fun x => fderiv ℝ (act g⁻¹) x) = fun _ => g⁻¹.R.toContinuousLinearMap := by
-  ext x v i
-  let L := g⁻¹.R.toContinuousLinearMap
-  calc (fderiv ℝ (act g⁻¹) x v) i
-      = (fderiv ℝ (fun y => L y + g⁻¹.t) x v) i := rfl
-    _ = ((fderiv ℝ (fun y => L y + g⁻¹.t) x) v) i := rfl
-    _ = ((fderiv ℝ L x) v) i := by rw [fderiv_linear_add_const]
-    _ = (L v) i := by rw [ContinuousLinearMap.fderiv]
-
-theorem fderiv_has_temperate_growth (g : E d) :
-    Function.HasTemperateGrowth (fun x => fderiv ℝ (act g⁻¹) x) := by
-  rw [fderiv_act_inv_eq_linear g]
-  exact Function.HasTemperateGrowth.const _
-
-theorem act_inv_poly_bound (g : E d) :
-    ∃ k : ℕ, ∃ C : ℝ, ∀ x : SpaceTime d, ‖act g⁻¹ x‖ ≤ C * (1 + ‖x‖) ^ k := by
-  use 1, (1 + ‖g⁻¹.t‖)
-  intro x
-  have : act g⁻¹ x = g⁻¹.R x + g⁻¹.t := by simp [act]
-  rw [this]
-  calc ‖g⁻¹.R x + g⁻¹.t‖
-      ≤ ‖g⁻¹.R x‖ + ‖g⁻¹.t‖ := norm_add_le _ _
-    _ = ‖x‖ + ‖g⁻¹.t‖ := by rw [g⁻¹.R.norm_map x]
-    _ ≤ (1 + ‖g⁻¹.t‖) * (1 + ‖x‖) ^ 1 := by
-        simp only [pow_one]
-        ring_nf
-        have h1 : 0 ≤ ‖x‖ := norm_nonneg x
-        have h2 : 0 ≤ ‖g⁻¹.t‖ := norm_nonneg _
-        linarith [mul_nonneg h2 h1]
-
-/-- The pullback map `x ↦ g⁻¹ • x` has temperate growth (an affine map). -/
-lemma euclidean_pullback_temperate_growth (g : E d) :
-    Function.HasTemperateGrowth (euclidean_pullback g) := by
-  unfold euclidean_pullback
-  obtain ⟨k, C, hbound⟩ := act_inv_poly_bound g
-  exact Function.HasTemperateGrowth.of_fderiv (fderiv_has_temperate_growth g)
-    ((contDiff_act_inv g).differentiable WithTop.top_ne_zero) hbound
-
-/-- The pullback map satisfies the polynomial lower bound needed to precompose Schwartz
-functions: `‖x‖ ≤ C (1 + ‖g⁻¹ • x‖)^k`. -/
-lemma euclidean_pullback_polynomial_bounds (g : E d) :
-    ∃ (k : ℕ) (C : ℝ), ∀ x : SpaceTime d, ‖x‖ ≤ C * (1 + ‖euclidean_pullback g x‖) ^ k := by
-  use 1, (1 + ‖g⁻¹.t‖)
-  intro x
-  simp only [pow_one, euclidean_pullback, act]
-  have h_iso : ‖g⁻¹.R x‖ = ‖x‖ := g⁻¹.R.norm_map x
-  rw [← h_iso]
-  have h_ineq : ‖g⁻¹.R x‖ ≤ ‖g⁻¹.R x + g⁻¹.t‖ + ‖g⁻¹.t‖ := norm_le_add_norm_add _ _
-  calc ‖g⁻¹.R x‖
-      ≤ ‖g⁻¹.R x + g⁻¹.t‖ + ‖g⁻¹.t‖ := h_ineq
-    _ ≤ (1 + ‖g⁻¹.t‖) * (1 + ‖g⁻¹.R x + g⁻¹.t‖) := by
-        have h1 : 0 ≤ ‖g⁻¹.R x + g⁻¹.t‖ := norm_nonneg _
-        have h2 : 0 ≤ ‖g⁻¹.t‖ := norm_nonneg _
-        ring_nf
-        linarith [mul_nonneg h2 h1]
-
-/-- The action of a Euclidean motion on complex test functions by pullback:
-`(g • f)(x) = f(g⁻¹ • x)`. -/
-noncomputable def euclidean_action (g : E d) (f : TestFunctionℂ d) : TestFunctionℂ d :=
-  SchwartzMap.compCLM (𝕜 := ℂ)
-    (hg := euclidean_pullback_temperate_growth g)
-    (hg_upper := euclidean_pullback_polynomial_bounds g) f
 
 /-! ## Time reflection and the Osterwalder–Schrader star operation -/
 
@@ -591,12 +492,24 @@ def OS1_Regularity (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Pr
         Real.exp (c * (∫ x, ‖f x‖ ∂volume + ∫ x, ‖f x‖ ^ p ∂volume))) ∧
     (p = 2 → TwoPointIntegrable dμ_config)
 
-/-- **OS2 (Euclidean invariance):** the generating functional is invariant under the pullback
-action of every Euclidean motion. -/
+/-- **OS2 (Euclidean invariance):** the generating functional is invariant under every
+Euclidean motion `x ↦ R x + b` of `ℝ^d`.
+
+The motion acts on test functions by pullback, `(g · f)(x) = f (g⁻¹ x) = f (R⁻¹ (x − b))`.
+Rather than *constructing* that pullback as a Schwartz map — which needs the temperate-growth
+and antilipschitz apparatus, and is proof development rather than statement — we quantify over
+any test function `f'` that agrees with it pointwise. The companion existence clause in the
+theorem (`EuclideanPullbackExists`) rules out the reading in which this is vacuous. -/
 def OS2_EuclideanInvariance (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Prop :=
-  ∀ (g : E d) (f : TestFunctionℂ d),
-    GJGeneratingFunctionalℂ dμ_config f =
-    GJGeneratingFunctionalℂ dμ_config (euclidean_action g f)
+  ∀ (R : SpaceTime d ≃ₗᵢ[ℝ] SpaceTime d) (b : SpaceTime d) (f f' : TestFunctionℂ d),
+    (∀ x, f' x = f (R.symm (x - b))) →
+    GJGeneratingFunctionalℂ dμ_config f = GJGeneratingFunctionalℂ dμ_config f'
+
+/-- Every Euclidean motion really does pull test functions back to test functions, so the
+hypothesis of `OS2_EuclideanInvariance` is satisfiable and the axiom has its full force. -/
+def EuclideanPullbackExists (d : ℕ) : Prop :=
+  ∀ (R : SpaceTime d ≃ₗᵢ[ℝ] SpaceTime d) (b : SpaceTime d) (f : TestFunctionℂ d),
+    ∃ f' : TestFunctionℂ d, ∀ x, f' x = f (R.symm (x - b))
 
 /-- **OS3 (Reflection positivity):** the generating functional defines a positive
 semi-definite Hermitian form on test functions supported at positive time. This is the
@@ -644,7 +557,9 @@ distributions `S'(ℝ^d)` — the free (massive) Gaussian Free Field — such th
 * `μ` is uniquely characterized by its generating functional
   `Z[f] = exp (−½ ⟨f, C f⟩)`, where `C = (−Δ + m²)⁻¹` is the free covariance in its
   proper-time form (this clause pins `μ` down: a Gaussian measure is determined by its
-  characteristic functional); and
+  characteristic functional);
+* every Euclidean motion pulls test functions back to test functions
+  (`EuclideanPullbackExists`), so the characterised OS2 below has its full force; and
 * `μ` satisfies the five Osterwalder–Schrader axioms: OS0 (analyticity), OS1 (regularity),
   OS2 (Euclidean invariance), OS3 (reflection positivity, complex star formulation), and
   OS4 (both clustering and ergodicity).
@@ -656,17 +571,40 @@ theorem gaussianFreeField_satisfies_OS_axioms (d : ℕ) [Fact (2 ≤ d)] (m : �
       (∀ f : TestFunction d,
         GJGeneratingFunctional μ f =
           Complex.exp (-(1 / 2 : ℂ) * ((covarianceForm d m f f : ℝ) : ℂ))) ∧
+      EuclideanPullbackExists d ∧
       OS0_Analyticity μ ∧ OS1_Regularity μ ∧ OS2_EuclideanInvariance μ ∧
       OS3_ReflectionPositivity μ ∧ OS4_Clustering μ ∧ OS4_Ergodicity μ := by
   haveI : Fact (0 < m) := ⟨hm⟩
   letI := OSforGFF.GFFPropagator.ofProperTime d m
   have master := OSforGFF.gaussianFreeField_satisfies_all_OS_axioms_generic (d := d) m
+  -- `LinearIsometry.inv` of an equivalence's underlying isometry is its inverse.
+  have hinv : ∀ (R : SpaceTime d ≃ₗᵢ[ℝ] SpaceTime d) (y : SpaceTime d),
+      QFT.LinearIsometry.inv (R.toLinearIsometry) y = R.symm y := by
+    intro R y
+    simpa using QFT.LinearIsometry.inv_apply (R.toLinearIsometry) (R.symm y)
+  -- The library's constructed pullback realises the pointwise characterisation.
+  have hact : ∀ (R : SpaceTime d ≃ₗᵢ[ℝ] SpaceTime d) (b : SpaceTime d)
+      (f : TestFunctionℂ d) (x : SpaceTime d),
+      QFT.euclidean_action (⟨R.toLinearIsometry, b⟩ : QFT.E d) f x = f (R.symm (x - b)) := by
+    intro R b f x
+    simp only [QFT.euclidean_action, SchwartzMap.compCLM_apply, Function.comp_apply,
+      QFT.euclidean_pullback, QFT.act, QFT.inv_R, QFT.inv_t]
+    congr 1
+    rw [hinv R x, hinv R b, map_sub]
+    simp [sub_eq_add_neg]
   refine ⟨gaussianFreeField_free (d := d) m,
     fun f => gff_real_characteristic (d := d) m f,
-    master.os0, master.os1,
-    fun g f => master.os2 ⟨g.R, g.t⟩ f,
+    ?_, master.os0, master.os1, ?_,
     fun n f c => master.os3 n (fun i => ⟨(f i).val, (f i).property⟩) c,
     master.os4_clustering, master.os4_ergodicity⟩
+  · -- EuclideanPullbackExists
+    exact fun R b f => ⟨QFT.euclidean_action ⟨R.toLinearIsometry, b⟩ f, hact R b f⟩
+  · -- OS2, in the characterised form
+    intro R b f f' hf'
+    have : f' = QFT.euclidean_action (⟨R.toLinearIsometry, b⟩ : QFT.E d) f := by
+      ext x; rw [hf' x, hact R b f x]
+    rw [this]
+    exact master.os2 _ f
 
 end
 
