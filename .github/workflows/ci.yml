@@ -27,6 +27,8 @@ jobs:
         with: { ruby-version: "3.3.12" }
       - name: Validate against the Palomar metadata rules
         run: ruby scripts/validate-formalization.rb
+      - name: Source-level gate on the pair (axioms, escape hatches, sorry counts)
+        run: bash scripts/check-pair.sh
 
   build:
     name: Build the pair at the pinned commit

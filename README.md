@@ -28,11 +28,18 @@ discharge that statement, and that the proof rests on nothing beyond Lean's thre
 That constraint is the point. The audit surface is written in a vocabulary the reader already
 trusts, and none of it is taken on the library's word.
 
+The design choices behind the restatement — why existential + characterization, why the
+proper-time covariance — and the full dictionary between the Challenge's self-contained
+definitions and the library's originals are laid out in
+[docs/challenge.md](docs/challenge.md).
+
 ## Verifying
 
 ```bash
 lake build                 # builds Challenge and Solution — both are default targets
 ./scripts/verify-comparator.sh
+bash scripts/check-pair.sh # source-level gate: no axioms/escape hatches; Challenge has
+                           # exactly the challenge-hole sorry, Solution none
 ```
 
 `verify-comparator.sh` fetches and pins Comparator, `lean4export`, NanoDa and Landrun, then
@@ -53,7 +60,12 @@ ahead of the pin is expected and is not a failure of this repository. A red cana
 registered statement no longer builds against the library, which is the signal to re-pin and
 re-verify.
 
-Re-pin at meaningful library milestones, and whenever the canary goes red.
+Re-pinning is triggered by any of:
+
+- a **meaningful library milestone**, verified here before it enters any registry version;
+- a **metadata change** in the library — not only its mathematics — since Palomar inspects
+  the substantive repository at the declared commit;
+- a **red canary**, the drift signal.
 
 ## Why the pair lives here rather than in OSforGFF
 
