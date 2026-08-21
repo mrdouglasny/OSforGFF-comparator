@@ -15,10 +15,10 @@ and proves the challenge theorem from the OSforGFF library — the witness is th
 Minlos-constructed measure `gaussianFreeField_free` under the canonical proper-time propagator
 `GFFPropagator.ofProperTime`, its characterization is `gff_real_characteristic`, and the five
 OS axioms are the fields of the dimension-generic master theorem
-`gaussianFreeField_satisfies_all_OS_axioms_generic`; the three pullback-existence clauses and
-the characterised OS2, OS3, and OS4 ergodicity are discharged through the library's
-constructed Schwartz-map actions (`QFT.euclidean_action`, the `Star` instance, and
-`TimeTranslation.timeTranslationSchwartzCLM`).
+`gaussianFreeField_satisfies_all_OS_axioms_generic`; the four pullback-existence clauses and
+the characterised OS1 integrability, OS2, OS3, and OS4 are discharged through the library's
+constructed Schwartz-map transforms (`QFT.euclidean_action`, the `Star` instance,
+`TimeTranslation.timeTranslationSchwartzCLM`, and `SchwartzMap.translate`).
 
 The Challenge (restated below) covers, in Mathlib-only terms, the construction of Euclidean
 quantum field theory's
@@ -41,12 +41,13 @@ that *the free field* satisfies them.
 All definitions below are self-contained over Mathlib: the field configuration space and its
 cylinder σ-algebra, the generating functionals, the free covariance, time reflection and the
 Osterwalder–Schrader star operation, positive-time test functions, time translations, the
-mollifier-regularized two-point function, and the five OS axiom predicates. Euclidean
-invariance (OS2), the OS star of reflection positivity (OS3), and the time translation of
-ergodicity (OS4) are stated by *characterising* the relevant pullbacks pointwise rather
-than constructing them as Schwartz maps; the `EuclideanPullbackExists`,
-`TimeReflectionStarExists`, and `TimeTranslationExists` clauses of the theorem rule out the
-vacuous readings. The theorem is proved at the end of the file.
+mollifier-regularized two-point function, and the five OS axiom predicates. Wherever an
+axiom needs a transformed test function — the Euclidean pullback (OS2), the OS star (OS3),
+the time translation (OS4 ergodicity), and the mollifier translates of the two-point
+function (OS1) and of clustering (OS4) — the transform is *characterised* pointwise rather
+than constructed as a Schwartz map, and the `EuclideanPullbackExists`,
+`TimeReflectionStarExists`, `TimeTranslationExists`, and `TranslationExists` clauses of the
+theorem rule out the vacuous readings. The theorem is proved at the end of the file.
 
 The formulation of the axioms follows Glimm–Jaffe, *Quantum Physics: A Functional Integral
 Point of View* (Springer, 1987), ch. 6, stated for probability measures on `S'(ℝ^d)`; OS3 is
@@ -175,33 +176,11 @@ def SchwingerFunction₂ (dμ_config : ProbabilityMeasure (FieldConfiguration d)
     (f g : TestFunction d) : ℝ :=
   SchwingerFunction dμ_config 2 ![f, g]
 
-lemma sub_const_hasTemperateGrowth {E : Type*} [NormedAddCommGroup E] [NormedSpace ℝ E]
-    (a : E) : Function.HasTemperateGrowth (fun x : E => x - a) := by fun_prop
-
-lemma sub_const_antilipschitz {E : Type*} [NormedAddCommGroup E] (a : E) :
-    AntilipschitzWith 1 (fun x : E => x - a) := by
-  intro x y
-  simp [edist_dist, dist_eq_norm]
-
-/-- Translation of a Schwartz function by a vector: `(translateSchwartz f a)(x) = f(x − a)`.
-Translation `x ↦ x − a` is an isometry with temperate growth, so it preserves the Schwartz
-class. -/
-def translateSchwartz (f : TestFunction d) (a : SpaceTime d) : TestFunction d :=
-  SchwartzMap.compCLMOfAntilipschitz ℝ (sub_const_hasTemperateGrowth a)
-    (sub_const_antilipschitz a) f
-
 /-- The L¹-normalized smooth bump function attached to a `ContDiffBump` centered at the
 origin, viewed as a Schwartz function (it is smooth with compact support). It integrates
 to `1`, so it is a mollifier. -/
 def bumpToSchwartz (φ : ContDiffBump (0 : SpaceTime d)) : TestFunction d :=
   (φ.hasCompactSupport_normed (μ := volume)).toSchwartzMap φ.contDiff_normed
-
-/-- The two-point function smeared against a mollifier: the covariance evaluated on a
-normalized bump translated to `x` against the same bump at the origin,
-`∫∫ φ(u − x) ⟨φ(u) φ(v)⟩ φ(v) du dv`. -/
-def SmearedTwoPointFunction (dμ_config : ProbabilityMeasure (FieldConfiguration d))
-    (φ : ContDiffBump (0 : SpaceTime d)) (x : SpaceTime d) : ℝ :=
-  SchwingerFunction₂ dμ_config (translateSchwartz (bumpToSchwartz φ) x) (bumpToSchwartz φ)
 
 /-- The standard mollifier sequence: bumps with outer radius `1/n` (and inner radius
 `1/(2n)`), shrinking to the origin as `n → ∞`. -/
@@ -215,17 +194,6 @@ def standardBumpSequence (n : ℕ) (hn : n ≠ 0) : ContDiffBump (0 : SpaceTime 
       have : (2 * (n : ℝ))⁻¹ < (n : ℝ)⁻¹ := inv_strictAnti₀ hn' (by linarith)
       simp only [one_div]
       exact this }
-
-/-- The pointwise two-point function `S₂(x)`, defined as the mollifier limit of smeared
-two-point functions along the standard bump sequence, regularized to `0` at the coincident
-point `x = 0` (where the two-point function of a quantum field diverges). -/
-def SchwingerTwoPointFunction
-    (dμ_config : ProbabilityMeasure (FieldConfiguration d)) (x : SpaceTime d) : ℝ :=
-  if x = 0 then 0
-  else
-    Filter.limUnder Filter.atTop
-      (fun n : ℕ => if hn : n = 0 then 0
-        else SmearedTwoPointFunction dμ_config (standardBumpSequence n hn) x)
 
 /-! ## Time reflection and the Osterwalder–Schrader star operation -/
 
@@ -268,9 +236,21 @@ def OS0_Analyticity (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : P
       GJGeneratingFunctionalℂ dμ_config (∑ i, z i • J i)) Set.univ
 
 /-- Local integrability of the pointwise two-point function, the additional condition OS1
-imposes in the borderline case `p = 2`. -/
+imposes in the borderline case `p = 2`. The pointwise two-point function `S₂(x)` is the
+mollifier limit of smeared covariances `S₂(φₙ(· − x), φₙ)` along the standard bump sequence,
+regularized to `0` at the coincident point `x = 0` (where the two-point function of a
+quantum field diverges). The translated mollifier `φₙ(· − x)` is characterised pointwise by
+the quantified family `smear` rather than constructed as a Schwartz map; the companion
+existence clause in the theorem (`TranslationExists`) rules out the vacuous reading. -/
 def TwoPointIntegrable (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Prop :=
-  LocallyIntegrable (fun x => SchwingerTwoPointFunction dμ_config x) volume
+  ∀ smear : ContDiffBump (0 : SpaceTime d) → SpaceTime d → TestFunction d,
+    (∀ φ x y, smear φ x y = bumpToSchwartz φ (y - x)) →
+    LocallyIntegrable (fun x : SpaceTime d =>
+      if x = 0 then 0
+      else Filter.limUnder Filter.atTop
+        (fun n : ℕ => if hn : n = 0 then 0
+          else SchwingerFunction₂ dμ_config (smear (standardBumpSequence n hn) x)
+            (bumpToSchwartz (standardBumpSequence n hn)))) volume
 
 /-- **OS1 (Regularity):** the generating functional satisfies an exponential bound
 `‖Z[f]‖ ≤ exp (c (‖f‖₁ + ‖f‖ₚᵖ))` for some `1 ≤ p ≤ 2` and `c > 0`; when `p = 2`, the
@@ -333,12 +313,21 @@ def TimeReflectionStarExists (d : ℕ) [Fact (2 ≤ d)] : Prop :=
 
 /-- **OS4 (Clustering):** correlations of distant regions decay:
 `Z[f + T_a g] → Z[f] Z[g]` as the translation `‖a‖ → ∞`, so that widely separated test
-functions become statistically independent. -/
+functions become statistically independent. The translate `(T_a g)(x) = g(x − a)` is
+characterised pointwise by the quantified `g'`; the companion existence clause in the
+theorem (`TranslationExists`) rules out the vacuous reading. -/
 def OS4_Clustering (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Prop :=
-  ∀ (f g : TestFunction d) (ε : ℝ), ε > 0 → ∃ (R : ℝ), R > 0 ∧ ∀ (a : SpaceTime d),
-    ‖a‖ > R →
-    ‖GJGeneratingFunctional dμ_config (f + translateSchwartz g a) -
-     GJGeneratingFunctional dμ_config f * GJGeneratingFunctional dμ_config g‖ < ε
+  ∀ (f g : TestFunction d) (ε : ℝ), ε > 0 → ∃ (R : ℝ), R > 0 ∧
+    ∀ (a : SpaceTime d) (g' : TestFunction d), ‖a‖ > R →
+      (∀ x, g' x = g (x - a)) →
+      ‖GJGeneratingFunctional dμ_config (f + g') -
+       GJGeneratingFunctional dμ_config f * GJGeneratingFunctional dμ_config g‖ < ε
+
+/-- Translation really does carry test functions to test functions, so the hypotheses of
+`OS4_Clustering` and `TwoPointIntegrable` are satisfiable and those statements have their
+full force. -/
+def TranslationExists (d : ℕ) : Prop :=
+  ∀ (g : TestFunction d) (a : SpaceTime d), ∃ g' : TestFunction d, ∀ x, g' x = g (x - a)
 
 /-- **OS4 (Ergodicity):** for observables `A(ω) = ∑ⱼ zⱼ e^{⟨ω, fⱼ⟩}`, the time average
 `(1/T) ∫₀ᵀ A(T_s ω) ds` converges to the expectation `𝔼_μ[A]` in `L²(μ)` as `T → ∞`.
@@ -384,9 +373,9 @@ distributions `S'(ℝ^d)` — the free (massive) Gaussian Free Field — such th
   characteristic functional);
 * every Euclidean motion pulls test functions back to test functions
   (`EuclideanPullbackExists`), every test function has an Osterwalder–Schrader star
-  (`TimeReflectionStarExists`), and time translation carries test functions to test
-  functions (`TimeTranslationExists`), so the characterised OS2, OS3, and OS4 ergodicity
-  below have their full force; and
+  (`TimeReflectionStarExists`), and time translation and spacetime translation carry test
+  functions to test functions (`TimeTranslationExists`, `TranslationExists`), so the
+  characterised OS1 integrability, OS2, OS3, and OS4 below have their full force; and
 * `μ` satisfies the five Osterwalder–Schrader axioms: OS0 (analyticity), OS1 (regularity),
   OS2 (Euclidean invariance), OS3 (reflection positivity, complex star formulation), and
   OS4 (both clustering and ergodicity).
@@ -399,6 +388,7 @@ theorem gaussianFreeField_satisfies_OS_axioms (d : ℕ) [Fact (2 ≤ d)] (m : �
         GJGeneratingFunctional μ f =
           Complex.exp (-(1 / 2 : ℂ) * ((covarianceForm d m f f : ℝ) : ℂ))) ∧
       EuclideanPullbackExists d ∧ TimeReflectionStarExists d ∧ TimeTranslationExists d ∧
+      TranslationExists d ∧
       OS0_Analyticity μ ∧ OS1_Regularity μ ∧ OS2_EuclideanInvariance μ ∧
       OS3_ReflectionPositivity μ ∧ OS4_Clustering μ ∧ OS4_Ergodicity μ := by
   haveI : Fact (0 < m) := ⟨hm⟩
@@ -428,14 +418,26 @@ theorem gaussianFreeField_satisfies_OS_axioms (d : ℕ) [Fact (2 ≤ d)] (m : �
     intro r g x
     simp [TimeTranslation.timeTranslationSchwartzCLM, SchwartzMap.compCLMOfAntilipschitz_apply]
     rfl
+  -- The library's constructed translation realises the pointwise characterisation.
+  have htrans : ∀ (g : TestFunction d) (a : SpaceTime d) (x : SpaceTime d),
+      SchwartzMap.translate g a x = g (x - a) := fun g a x =>
+    SchwartzMap.translate_apply g a x
   refine ⟨gaussianFreeField_free (d := d) m,
     fun f => gff_real_characteristic (d := d) m f,
     ?_, fun g => ⟨star g, hstar g⟩,
     fun s g => ⟨TimeTranslation.timeTranslationSchwartzCLM s g, hshift s g⟩,
-    master.os0, master.os1, ?_, ?_,
-    master.os4_clustering, ?_⟩
+    fun g a => ⟨SchwartzMap.translate g a, htrans g a⟩,
+    master.os0, ?_, ?_, ?_, ?_, ?_⟩
   · -- EuclideanPullbackExists
     exact fun R b f => ⟨QFT.euclidean_action ⟨R.toLinearIsometry, b⟩ f, hact R b f⟩
+  · -- OS1, with the smearing translation characterised
+    obtain ⟨p, c, hp1, hp2, hc, hbound, hint⟩ := master.os1
+    refine ⟨p, c, hp1, hp2, hc, hbound, fun hp2' smear hsmear => ?_⟩
+    have hsm : ∀ (φ : ContDiffBump (0 : SpaceTime d)) (x : SpaceTime d),
+        smear φ x = SchwartzMap.translate (bumpToSchwartz φ) x := fun φ x =>
+      SchwartzMap.ext fun y => (hsmear φ x y).trans (htrans (bumpToSchwartz φ) x y).symm
+    simp only [hsm]
+    exact hint hp2'
   · -- OS2, in the characterised form
     intro R b f f' hf'
     have : f' = QFT.euclidean_action (⟨R.toLinearIsometry, b⟩ : QFT.E d) f := by
@@ -448,6 +450,14 @@ theorem gaussianFreeField_satisfies_OS_axioms (d : ℕ) [Fact (2 ≤ d)] (m : �
       fun j => SchwartzMap.ext fun x => (hchar j x).trans (hstar (f j) x).symm
     simp only [hfs]
     exact master.os3 n (fun i => ⟨f i, hsupp i⟩) c
+  · -- OS4 clustering, with the translation characterised
+    intro f g ε hε
+    obtain ⟨R, hR, h⟩ := master.os4_clustering f g ε hε
+    refine ⟨R, hR, fun a g' ha hg' => ?_⟩
+    have : g' = SchwartzMap.translate g a :=
+      SchwartzMap.ext fun x => (hg' x).trans (htrans g a x).symm
+    rw [this]
+    exact h a ha
   · -- OS4 ergodicity, with the time translation characterised
     intro translate htr n z f
     have hT : ∀ (r : ℝ) (g : TestFunction d),
