@@ -15,9 +15,10 @@ and proves the challenge theorem from the OSforGFF library — the witness is th
 Minlos-constructed measure `gaussianFreeField_free` under the canonical proper-time propagator
 `GFFPropagator.ofProperTime`, its characterization is `gff_real_characteristic`, and the five
 OS axioms are the fields of the dimension-generic master theorem
-`gaussianFreeField_satisfies_all_OS_axioms_generic`; the Euclidean-pullback and OS-star
-existence clauses and the characterised OS2 and OS3 are discharged through the library's
-constructed action `QFT.euclidean_action` and its `Star` instance on test functions.
+`gaussianFreeField_satisfies_all_OS_axioms_generic`; the three pullback-existence clauses and
+the characterised OS2, OS3, and OS4 ergodicity are discharged through the library's
+constructed Schwartz-map actions (`QFT.euclidean_action`, the `Star` instance, and
+`TimeTranslation.timeTranslationSchwartzCLM`).
 
 The Challenge (restated below) covers, in Mathlib-only terms, the construction of Euclidean
 quantum field theory's
@@ -41,10 +42,11 @@ All definitions below are self-contained over Mathlib: the field configuration s
 cylinder σ-algebra, the generating functionals, the free covariance, time reflection and the
 Osterwalder–Schrader star operation, positive-time test functions, time translations, the
 mollifier-regularized two-point function, and the five OS axiom predicates. Euclidean
-invariance (OS2) and the OS star of reflection positivity (OS3) are stated by
-*characterising* the pullback action and the star pointwise rather than constructing them as
-Schwartz maps; the `EuclideanPullbackExists` and `TimeReflectionStarExists` clauses of the
-theorem rule out the vacuous readings. The theorem is proved at the end of the file.
+invariance (OS2), the OS star of reflection positivity (OS3), and the time translation of
+ergodicity (OS4) are stated by *characterising* the relevant pullbacks pointwise rather
+than constructing them as Schwartz maps; the `EuclideanPullbackExists`,
+`TimeReflectionStarExists`, and `TimeTranslationExists` clauses of the theorem rule out the
+vacuous readings. The theorem is proved at the end of the file.
 
 The formulation of the axioms follows Glimm–Jaffe, *Quantum Physics: A Functional Integral
 Point of View* (Springer, 1987), ch. 6, stated for probability measures on `S'(ℝ^d)`; OS3 is
@@ -275,54 +277,6 @@ coordinates: `(timeShift s u)₀ = u₀ + s` and `(timeShift s u)ᵢ = uᵢ` for
 def timeShift (s : ℝ) (u : SpaceTime d) : SpaceTime d :=
   WithLp.toLp 2 (fun i => if i.val = 0 then u.ofLp i + s else u.ofLp i)
 
-/-- Time shift preserves the Euclidean distance. -/
-lemma timeShift_dist (s : ℝ) (u v : SpaceTime d) :
-    dist (timeShift s u) (timeShift s v) = dist u v := by
-  simp only [EuclideanSpace.dist_eq, timeShift]
-  congr 1
-  apply Finset.sum_congr rfl
-  intro i _
-  split_ifs with h
-  · congr 1; simp only [Real.dist_eq, add_sub_add_right_eq_sub]
-  · rfl
-
-/-- Time shift is an isometry of `ℝ^d`. -/
-lemma timeShift_isometry (s : ℝ) : Isometry (timeShift (d := d) s) := by
-  rw [isometry_iff_dist_eq]
-  exact fun u v => timeShift_dist s u v
-
-lemma timeShift_antilipschitz (s : ℝ) : AntilipschitzWith 1 (timeShift (d := d) s) :=
-  (timeShift_isometry s).antilipschitz
-
-/-- The constant vector expressing `timeShift` as `id + const`. -/
-def timeShiftConst (s : ℝ) : SpaceTime d :=
-  WithLp.toLp 2 (fun i => if i.val = 0 then s else 0)
-
-lemma timeShift_eq_add_const (s : ℝ) (u : SpaceTime d) :
-    timeShift s u = u + timeShiftConst s := by
-  simp only [timeShift, timeShiftConst]
-  ext i
-  simp only [PiLp.add_apply]
-  split_ifs with h <;> ring
-
-/-- Time shift has temperate growth: it is the affine map `u ↦ u + timeShiftConst s`, the sum
-of the identity and a constant. -/
-lemma timeShift_hasTemperateGrowth (s : ℝ) :
-    Function.HasTemperateGrowth (timeShift (d := d) s) := by
-  rw [funext (timeShift_eq_add_const s)]
-  exact Function.HasTemperateGrowth.id'.fun_add (.const _)
-
-/-- Time translation `f ↦ f ∘ (timeShift s)` as a continuous linear map on real test
-functions: `(T_s f)(t, x̄) = f(t + s, x̄)`. -/
-def timeTranslationSchwartzCLM (s : ℝ) : TestFunction d →L[ℝ] TestFunction d :=
-  SchwartzMap.compCLMOfAntilipschitz ℝ (timeShift_hasTemperateGrowth s)
-    (timeShift_antilipschitz s)
-
-/-- Time translation on tempered distributions, by duality:
-`⟨T_s ω, f⟩ = ⟨ω, T_{−s} f⟩`. -/
-def timeTranslationDistribution (s : ℝ) (ω : FieldConfiguration d) : FieldConfiguration d :=
-  ω.comp (timeTranslationSchwartzCLM (-s))
-
 /-! ## The Osterwalder–Schrader axioms -/
 
 /-- **OS0 (Analyticity):** the generating functional is entire in the complex smearing
@@ -405,19 +359,36 @@ def OS4_Clustering (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Pr
      GJGeneratingFunctional dμ_config f * GJGeneratingFunctional dμ_config g‖ < ε
 
 /-- **OS4 (Ergodicity):** for observables `A(ω) = ∑ⱼ zⱼ e^{⟨ω, fⱼ⟩}`, the time average
-`(1/T) ∫₀ᵀ A(T_s ω) ds` converges to the expectation `𝔼_μ[A]` in `L²(μ)` as `T → ∞`. -/
+`(1/T) ∫₀ᵀ A(T_s ω) ds` converges to the expectation `𝔼_μ[A]` in `L²(μ)` as `T → ∞`.
+
+The translated distribution is `⟨T_s ω, g⟩ = ⟨ω, g ∘ timeShift (−s)⟩`. Rather than
+*constructing* `g ∘ timeShift (−s)` as a Schwartz map, we quantify over any family
+`translate` agreeing with it pointwise, and write the translated observable through the
+real/imaginary decomposition of the pairing. The companion existence clause in the theorem
+(`TimeTranslationExists`) rules out the reading in which this is vacuous. -/
 def OS4_Ergodicity (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Prop :=
-  ∀ (n : ℕ) (z : Fin n → ℂ) (f : Fin n → TestFunctionℂ d),
+  ∀ (translate : ℝ → TestFunction d → TestFunction d),
+    (∀ (s : ℝ) (g : TestFunction d) (x : SpaceTime d), translate s g x = g (timeShift s x)) →
+    ∀ (n : ℕ) (z : Fin n → ℂ) (f : Fin n → TestFunctionℂ d),
     let μ := dμ_config.toMeasure
     let A : FieldConfiguration d → ℂ := fun ω =>
       ∑ j, z j * Complex.exp (distributionPairingℂ_real ω (f j))
+    let Ashift : ℝ → FieldConfiguration d → ℂ := fun s ω =>
+      ∑ j, z j * Complex.exp
+        ((ω (translate (-s) (complex_testfunction_decompose (f j)).1) : ℂ) +
+          Complex.I * (ω (translate (-s) (complex_testfunction_decompose (f j)).2) : ℂ))
     Filter.Tendsto
       (fun T : ℝ =>
         ∫ ω, ‖(1 / T) * ∫ s in Set.Icc (0 : ℝ) T,
-          A (timeTranslationDistribution s ω)
+          Ashift s ω
           - ∫ ω', A ω' ∂μ‖ ^ 2 ∂μ)
       Filter.atTop
       (nhds 0)
+
+/-- Time translation really does carry test functions to test functions, so the hypothesis
+of `OS4_Ergodicity` is satisfiable and the axiom has its full force. -/
+def TimeTranslationExists (d : ℕ) : Prop :=
+  ∀ (s : ℝ) (g : TestFunction d), ∃ g' : TestFunction d, ∀ x, g' x = g (timeShift s x)
 
 /-! ## The theorem -/
 
@@ -430,9 +401,10 @@ distributions `S'(ℝ^d)` — the free (massive) Gaussian Free Field — such th
   proper-time form (this clause pins `μ` down: a Gaussian measure is determined by its
   characteristic functional);
 * every Euclidean motion pulls test functions back to test functions
-  (`EuclideanPullbackExists`), and every test function has an Osterwalder–Schrader star
-  (`TimeReflectionStarExists`), so the characterised OS2 and OS3 below have their full
-  force; and
+  (`EuclideanPullbackExists`), every test function has an Osterwalder–Schrader star
+  (`TimeReflectionStarExists`), and time translation carries test functions to test
+  functions (`TimeTranslationExists`), so the characterised OS2, OS3, and OS4 ergodicity
+  below have their full force; and
 * `μ` satisfies the five Osterwalder–Schrader axioms: OS0 (analyticity), OS1 (regularity),
   OS2 (Euclidean invariance), OS3 (reflection positivity, complex star formulation), and
   OS4 (both clustering and ergodicity).
@@ -444,7 +416,7 @@ theorem gaussianFreeField_satisfies_OS_axioms (d : ℕ) [Fact (2 ≤ d)] (m : �
       (∀ f : TestFunction d,
         GJGeneratingFunctional μ f =
           Complex.exp (-(1 / 2 : ℂ) * ((covarianceForm d m f f : ℝ) : ℂ))) ∧
-      EuclideanPullbackExists d ∧ TimeReflectionStarExists d ∧
+      EuclideanPullbackExists d ∧ TimeReflectionStarExists d ∧ TimeTranslationExists d ∧
       OS0_Analyticity μ ∧ OS1_Regularity μ ∧ OS2_EuclideanInvariance μ ∧
       OS3_ReflectionPositivity μ ∧ OS4_Clustering μ ∧ OS4_Ergodicity μ := by
   haveI : Fact (0 < m) := ⟨hm⟩
@@ -468,10 +440,18 @@ theorem gaussianFreeField_satisfies_OS_axioms (d : ℕ) [Fact (2 ≤ d)] (m : �
   -- The library's constructed OS star realises the pointwise characterisation.
   have hstar : ∀ (g : TestFunctionℂ d) (x : SpaceTime d),
       (star g : TestFunctionℂ d) x = starRingEnd ℂ (g (timeReflection x)) := fun g x => rfl
+  -- The library's constructed time translation realises the pointwise characterisation.
+  have hshift : ∀ (r : ℝ) (g : TestFunction d) (x : SpaceTime d),
+      TimeTranslation.timeTranslationSchwartzCLM (d := d) r g x = g (timeShift r x) := by
+    intro r g x
+    simp [TimeTranslation.timeTranslationSchwartzCLM, SchwartzMap.compCLMOfAntilipschitz_apply]
+    rfl
   refine ⟨gaussianFreeField_free (d := d) m,
     fun f => gff_real_characteristic (d := d) m f,
-    ?_, fun g => ⟨star g, hstar g⟩, master.os0, master.os1, ?_, ?_,
-    master.os4_clustering, master.os4_ergodicity⟩
+    ?_, fun g => ⟨star g, hstar g⟩,
+    fun s g => ⟨TimeTranslation.timeTranslationSchwartzCLM s g, hshift s g⟩,
+    master.os0, master.os1, ?_, ?_,
+    master.os4_clustering, ?_⟩
   · -- EuclideanPullbackExists
     exact fun R b f => ⟨QFT.euclidean_action ⟨R.toLinearIsometry, b⟩ f, hact R b f⟩
   · -- OS2, in the characterised form
@@ -486,6 +466,13 @@ theorem gaussianFreeField_satisfies_OS_axioms (d : ℕ) [Fact (2 ≤ d)] (m : �
       fun j => SchwartzMap.ext fun x => (hchar j x).trans (hstar ((f j).val) x).symm
     simp only [hfs]
     exact master.os3 n (fun i => ⟨(f i).val, (f i).property⟩) c
+  · -- OS4 ergodicity, with the time translation characterised
+    intro translate htr n z f
+    have hT : ∀ (r : ℝ) (g : TestFunction d),
+        translate r g = TimeTranslation.timeTranslationSchwartzCLM r g := fun r g =>
+      SchwartzMap.ext fun x => (htr r g x).trans (hshift r g x).symm
+    simp only [hT]
+    exact master.os4_ergodicity n z f
 
 end
 
