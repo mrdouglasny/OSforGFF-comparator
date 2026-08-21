@@ -22,7 +22,7 @@ constructed Schwartz-map transforms (`QFT.euclidean_action`, the `Star` instance
 
 The Challenge (restated below) covers, in Mathlib-only terms, the construction of Euclidean
 quantum field theory's
-simplest interacting-free model: for every spacetime dimension `d ≥ 2` and mass `m > 0`, the
+simplest, interaction-free model: for every spacetime dimension `d ≥ 2` and mass `m > 0`, the
 free (massive) **Gaussian Free Field** exists as a probability measure on the tempered
 distributions `S'(ℝ^d)` and satisfies all five **Osterwalder–Schrader axioms** — OS0
 (analyticity), OS1 (regularity), OS2 (Euclidean invariance), OS3 (reflection positivity), and
@@ -39,9 +39,9 @@ requiring no operator theory. Without this clause the existence statement would 
 that *the free field* satisfies them.
 
 All definitions below are self-contained over Mathlib: the field configuration space and its
-cylinder σ-algebra, the generating functionals, the free covariance, the mollifier bumps and
-the smeared two-point function, time reflection, the positive-time half-space, time shifts,
-and the five OS axiom predicates.
+cylinder σ-algebra, the generating functionals, the free covariance, the Schwinger functions
+and the mollifier bumps, time reflection, the positive-time half-space, time shifts, and the
+five OS axiom predicates.
 
 Euclidean invariance (OS2), the OS star of reflection positivity (OS3), the mollifier
 smearing of the two-point function (OS1), and the translations of clustering and of the
@@ -217,7 +217,7 @@ coordinates. -/
 def timeReflection [Fact (2 ≤ d)] (x : SpaceTime d) : SpaceTime d :=
   (WithLp.equiv 2 _).symm (Function.update x.ofLp 0 (-x.ofLp 0))
 
-/-! ## Positive-time test functions -/
+/-! ## The positive-time half-space -/
 
 /-- A spacetime point has positive time if its time component is positive. -/
 def HasPositiveTime [Fact (2 ≤ d)] (x : SpaceTime d) : Prop := getTimeComponent x > 0
