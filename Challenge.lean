@@ -416,34 +416,12 @@ lemma timeShift_eq_add_const (s : ℝ) (u : SpaceTime d) :
   simp only [PiLp.add_apply]
   split_ifs with h <;> ring
 
-/-- Time shift has temperate growth (it is an affine map). -/
+/-- Time shift has temperate growth: it is the affine map `u ↦ u + timeShiftConst s`, the sum
+of the identity and a constant. -/
 lemma timeShift_hasTemperateGrowth (s : ℝ) :
     Function.HasTemperateGrowth (timeShift (d := d) s) := by
-  have h_fderiv_temperate : Function.HasTemperateGrowth (fderiv ℝ (timeShift (d := d) s)) := by
-    have h_eq : fderiv ℝ (timeShift (d := d) s) =
-        fun _ => ContinuousLinearMap.id ℝ (SpaceTime d) := by
-      ext x v
-      have h : timeShift (d := d) s = fun u => u + timeShiftConst s :=
-        funext (timeShift_eq_add_const s)
-      rw [h]
-      simp only [fderiv_add_const, fderiv_fun_id, ContinuousLinearMap.id_apply]
-    rw [h_eq]
-    exact Function.HasTemperateGrowth.const _
-  have h_diff : Differentiable ℝ (timeShift (d := d) s) := by
-    intro x
-    have h : timeShift (d := d) s = fun u => u + timeShiftConst s :=
-      funext (timeShift_eq_add_const s)
-    rw [h]
-    exact differentiableAt_id.add_const _
-  have h_bound : ∀ x : SpaceTime d,
-      ‖timeShift s x‖ ≤ (1 + ‖timeShiftConst (d := d) s‖) * (1 + ‖x‖) ^ 1 := by
-    intro x
-    rw [timeShift_eq_add_const, pow_one]
-    calc ‖x + timeShiftConst s‖
-        ≤ ‖x‖ + ‖timeShiftConst s‖ := norm_add_le _ _
-      _ ≤ (1 + ‖timeShiftConst s‖) * (1 + ‖x‖) := by
-          nlinarith [norm_nonneg x, norm_nonneg (timeShiftConst (d := d) s)]
-  exact Function.HasTemperateGrowth.of_fderiv h_fderiv_temperate h_diff h_bound
+  rw [funext (timeShift_eq_add_const s)]
+  exact Function.HasTemperateGrowth.id'.fun_add (.const _)
 
 /-- Time translation `f ↦ f ∘ (timeShift s)` as a continuous linear map on real test
 functions: `(T_s f)(t, x̄) = f(t + s, x̄)`. -/
