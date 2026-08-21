@@ -238,26 +238,6 @@ def HasPositiveTime [Fact (2 ≤ d)] (x : SpaceTime d) : Prop := getTimeComponen
 /-- The (open) positive-time half-space `{x : x₀ > 0}`. -/
 def positiveTimeSet [Fact (2 ≤ d)] : Set (SpaceTime d) := {x | HasPositiveTime x}
 
-/-- The ℂ-submodule of complex test functions supported in the positive-time half-space. -/
-def PositiveTimeTestFunctionsℂ.submodule [Fact (2 ≤ d)] : Submodule ℂ (TestFunctionℂ d) where
-  carrier := { f : TestFunctionℂ d | tsupport f ⊆ positiveTimeSet }
-  zero_mem' := by
-    simp only [Set.mem_setOf_eq]
-    suffices h : tsupport (0 : TestFunctionℂ d) = ∅ by
-      rw [h]
-      apply Set.empty_subset
-    rw [tsupport_eq_empty_iff]
-    rfl
-  add_mem' := fun {f g} hf hg => Set.Subset.trans (tsupport_add f g) (Set.union_subset hf hg)
-  smul_mem' := by
-    intro c f hf
-    refine (tsupport_smul_subset_right (fun _ : SpaceTime d => c) f).trans hf
-
-/-- Complex test functions supported at positive time (the domain of the OS3 reflection
-positivity form). -/
-abbrev PositiveTimeTestFunctionℂ (d : ℕ) [Fact (2 ≤ d)] : Type :=
-  PositiveTimeTestFunctionsℂ.submodule (d := d)
-
 /-! ## Time translations -/
 
 /-- Time translation on spacetime points: shift the time coordinate by `s`, keep the spatial
@@ -311,24 +291,26 @@ def EuclideanPullbackExists (d : ℕ) : Prop :=
 
 /-- **OS3 (Reflection positivity):** the generating functional defines a positive
 semi-definite Hermitian form on test functions supported at positive time. This is the
-complex (star) formulation of Osterwalder–Schrader (1975, axiom E2): for all positive-time
-complex test functions `f₁, …, fₙ` and coefficients `c₁, …, cₙ ∈ ℂ`,
-`∑ᵢⱼ c̄ᵢ cⱼ Z[fᵢ − fⱼ*] ≥ 0`, where `(f*)(x) = conj (f (Θ x))` combines time reflection
-with complex conjugation.
+complex (star) formulation of Osterwalder–Schrader (1975, axiom E2): for all complex test
+functions `f₁, …, fₙ` supported in the positive-time half-space and coefficients
+`c₁, …, cₙ ∈ ℂ`, `∑ᵢⱼ c̄ᵢ cⱼ Z[fᵢ − fⱼ*] ≥ 0`, where `(f*)(x) = conj (f (Θ x))` combines
+time reflection with complex conjugation.
 
-Rather than *constructing* `f*` as a Schwartz map — which needs the isometry-equivalence and
-temperate-growth apparatus, and is proof development rather than statement — we quantify over
-any test functions `fstar j` agreeing with `conj (f j (Θ ·))` pointwise. The companion
-existence clause in the theorem (`TimeReflectionStarExists`) rules out the reading in which
-this is vacuous. -/
+The support restriction is a plain hypothesis, `tsupport (f i) ⊆ positiveTimeSet`, rather
+than a subtype. `f*` is not *constructed* as a Schwartz map — that needs the
+isometry-equivalence and temperate-growth apparatus, and is proof development rather than
+statement — instead we quantify over any test functions `fstar j` agreeing with
+`conj (f j (Θ ·))` pointwise. The companion existence clause in the theorem
+(`TimeReflectionStarExists`) rules out the reading in which this is vacuous. -/
 def OS3_ReflectionPositivity [Fact (2 ≤ d)]
     (dμ_config : ProbabilityMeasure (FieldConfiguration d)) : Prop :=
-  ∀ (n : ℕ) (f : Fin n → PositiveTimeTestFunctionℂ d) (fstar : Fin n → TestFunctionℂ d)
+  ∀ (n : ℕ) (f : Fin n → TestFunctionℂ d) (fstar : Fin n → TestFunctionℂ d)
     (c : Fin n → ℂ),
-    (∀ j x, fstar j x = starRingEnd ℂ ((f j).val (timeReflection x))) →
+    (∀ i, tsupport (f i) ⊆ positiveTimeSet) →
+    (∀ j x, fstar j x = starRingEnd ℂ (f j (timeReflection x))) →
     0 ≤ (∑ i, ∑ j, starRingEnd ℂ (c i) * c j *
       GJGeneratingFunctionalℂ dμ_config
-        ((f i).val - fstar j)).re
+        (f i - fstar j)).re
 
 /-- The Osterwalder–Schrader star `(f*)(x) = conj (f (Θ x))` of a test function is again a
 test function, so the hypothesis of `OS3_ReflectionPositivity` is satisfiable and the axiom
